@@ -12,6 +12,7 @@ let googleApiLoaded = false;
 let googleUserSignedIn = false;
 
 const GOOGLE_CREDENTIALS_KEY = 'google_drive_credentials';
+let GOOGLE_CONFIG = {};
 
 function loadSavedGoogleConfig() {
   try {
