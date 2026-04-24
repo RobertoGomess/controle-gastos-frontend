@@ -109,6 +109,35 @@ body {
 .btn-danger:hover { background: #fee2e2; }
 .btn-icon { padding: 7px; width: 32px; height: 32px; justify-content: center; border-radius: 7px; }
 
+/* ── Google Drive Menu ──────────────────────────────────── */
+.google-drive-menu {
+  position: absolute; top: 50px; right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  overflow: hidden; z-index: 150; min-width: 180px;
+  animation: slideUp .2s cubic-bezier(.4,0,.2,1);
+}
+.google-drive-menu .btn-small {
+  width: 100%; justify-content: flex-start; padding: 10px 14px;
+  border: none; border-radius: 0; background: transparent;
+  color: var(--text2); font-size: 13px; transition: all var(--transition);
+}
+.google-drive-menu .btn-small:hover {
+  background: var(--surface2); color: var(--text); border: none;
+}
+.topbar-actions { position: relative; }
+
+.google-config-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+.google-config-panel .form-group { margin-bottom: 0; }
+.google-config-panel .form-label { margin-bottom: 4px; font-size: 12px; color: var(--text3); }
+.google-config-panel input.form-input { width: 100%; }
+
 /* ── Notice toast ────────────────────────────────────────── */
 .toast {
   position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(8px);

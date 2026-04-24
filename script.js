@@ -8,6 +8,48 @@ let pendingImportData = null;
 let toastTimer = null;
 let noticeTimer = null;
 let panelOpen = false;
+let googleApiLoaded = false;
+let googleUserSignedIn = false;
+
+const GOOGLE_CREDENTIALS_KEY = 'google_drive_credentials';
+
+function loadSavedGoogleConfig() {
+  try {
+    const raw = localStorage.getItem(GOOGLE_CREDENTIALS_KEY);
+    if (!raw) return;
+    const stored = JSON.parse(raw);
+    if (stored.clientId) GOOGLE_CONFIG.clientId = stored.clientId;
+    if (stored.apiKey) GOOGLE_CONFIG.apiKey = stored.apiKey;
+  } catch (e) {
+    console.warn('Não foi possível carregar credenciais salvas do Google:', e);
+  }
+}
+
+function saveGoogleCredentials(clientId, apiKey) {
+  localStorage.setItem(GOOGLE_CREDENTIALS_KEY, JSON.stringify({ clientId, apiKey }));
+}
+
+function populateGoogleCredentialFields() {
+  const clientIdInput = document.getElementById('google-client-id');
+  const apiKeyInput = document.getElementById('google-api-key');
+  if (!clientIdInput || !apiKeyInput) return;
+  clientIdInput.value = GOOGLE_CONFIG.clientId === 'YOUR_CLIENT_ID.apps.googleusercontent.com' ? '' : GOOGLE_CONFIG.clientId;
+  apiKeyInput.value = GOOGLE_CONFIG.apiKey === 'YOUR_API_KEY' ? '' : GOOGLE_CONFIG.apiKey;
+}
+
+function applyGoogleCredentials() {
+  const clientId = document.getElementById('google-client-id').value.trim();
+  const apiKey = document.getElementById('google-api-key').value.trim();
+  if (!clientId || !apiKey) {
+    showToast('Preencha clientId e apiKey do Google');
+    return;
+  }
+  GOOGLE_CONFIG.clientId = clientId;
+  GOOGLE_CONFIG.apiKey = apiKey;
+  saveGoogleCredentials(clientId, apiKey);
+  initGoogleAPI();
+  showToast('Credenciais do Google aplicadas');
+}
 
 const now = new Date();
 let selYear = now.getFullYear();
@@ -354,6 +396,15 @@ function setFilter(f,btn){
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
 });
 
+// Fechar menu Google Drive ao clicar fora
+document.addEventListener('click', e => {
+  const menu = document.getElementById('google-drive-menu');
+  const btn = document.getElementById('google-drive-btn');
+  if (menu && btn && e.target !== menu && e.target !== btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
+
 // ── Keyboard ──────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){['import-modal'].forEach(id=>document.getElementById(id).classList.remove('open'));}
@@ -362,8 +413,177 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+// ── Google Drive Integration ──────────────────────────────
+function initGoogleAPI() {
+  if (!GOOGLE_CONFIG.clientId || !GOOGLE_CONFIG.apiKey ||
+      GOOGLE_CONFIG.clientId.includes('YOUR_CLIENT_ID') ||
+      GOOGLE_CONFIG.apiKey.includes('YOUR_API_KEY')) {
+    googleApiLoaded = false;
+    return;
+  }
+  gapi.load('client:auth2', () => {
+    gapi.auth2.init({
+      client_id: GOOGLE_CONFIG.clientId,
+      scope: GOOGLE_CONFIG.scopes,
+      cookie_policy: 'single_host_origin'
+    }).then(() => {
+      return gapi.client.init({
+        apiKey: GOOGLE_CONFIG.apiKey,
+        discoveryDocs: GOOGLE_CONFIG.discoveryDocs
+      });
+    }).then(() => {
+      googleApiLoaded = true;
+      const auth2 = gapi.auth2.getAuthInstance();
+      updateGoogleUIState(auth2.isSignedIn.get());
+      auth2.isSignedIn.listen(updateGoogleUIState);
+    }).catch(e => console.error('Erro ao inicializar Google API:', e));
+  });
+}
+
+function updateGoogleUIState(isSignedIn) {
+  googleUserSignedIn = isSignedIn;
+  const authBtn = document.getElementById('google-auth-btn');
+  const driveBtn = document.getElementById('google-drive-btn');
+  if (isSignedIn) {
+    authBtn.style.display = 'none';
+    driveBtn.style.display = 'inline-flex';
+  } else {
+    authBtn.style.display = 'inline-flex';
+    driveBtn.style.display = 'none';
+  }
+}
+
+function signInGoogle() {
+  if (!googleApiLoaded) {
+    showToast('Google API ainda está carregando...');
+    return;
+  }
+  gapi.auth2.getAuthInstance().signIn();
+}
+
+function signOutGoogle() {
+  gapi.auth2.getAuthInstance().signOut();
+  toggleGoogleDriveMenu();
+  showToast('Desconectado do Google Drive');
+}
+
+function toggleGoogleDriveMenu() {
+  const menu = document.getElementById('google-drive-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+async function importFromGoogleDrive() {
+  if (!googleUserSignedIn) {
+    showToast('Faça login no Google Drive primeiro');
+    return;
+  }
+  try {
+    const response = await gapi.client.drive.files.list({
+      q: `name='${GOOGLE_DRIVE_FILENAME}' and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id, name)',
+      pageSize: 1
+    });
+
+    const files = response.result.files;
+    if (files.length === 0) {
+      showToast('Nenhum arquivo gastos.csv encontrado no Google Drive');
+      return;
+    }
+
+    const fileId = files[0].id;
+    const fileContent = await gapi.client.drive.files.get({
+      fileId: fileId,
+      alt: 'media'
+    });
+
+    const parsed = fromCSV(fileContent.body);
+    if (!parsed) {
+      showToast('Erro ao ler o arquivo do Google Drive');
+      return;
+    }
+
+    expenses = parsed;
+    save();
+    buildYearSelect();
+    render();
+    toggleGoogleDriveMenu();
+    showToast(expenses.length + ' gasto(s) importado(s) do Google Drive');
+  } catch (error) {
+    console.error('Erro ao importar do Google Drive:', error);
+    showToast('Erro ao importar do Google Drive');
+  }
+}
+
+async function exportToGoogleDrive() {
+  if (!googleUserSignedIn) {
+    showToast('Faça login no Google Drive primeiro');
+    return;
+  }
+  try {
+    const csvContent = toCSV(expenses);
+    
+    // Procurar arquivo existente
+    const response = await gapi.client.drive.files.list({
+      q: `name='${GOOGLE_DRIVE_FILENAME}' and trashed=false`,
+      spaces: 'drive',
+      fields: 'files(id)',
+      pageSize: 1
+    });
+
+    const files = response.result.files;
+    const boundary = '-------314159265358979323846';
+    const delimiter = '\r\n--' + boundary + '\r\n';
+    const closeDelim = '\r\n--' + boundary + '--';
+
+    const metadata = {
+      name: GOOGLE_DRIVE_FILENAME,
+      mimeType: 'text/csv'
+    };
+
+    const body = delimiter +
+      'Content-Type: application/json\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      'Content-Type: text/csv\r\n\r\n' +
+      csvContent +
+      closeDelim;
+
+    if (files.length > 0) {
+      // Atualizar arquivo existente
+      await gapi.client.request({
+        path: '/upload/drive/v3/files/' + files[0].id + '?uploadType=multipart',
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+        },
+        body: body
+      });
+    } else {
+      // Criar novo arquivo
+      await gapi.client.request({
+        path: '/upload/drive/v3/files?uploadType=multipart',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+        },
+        body: body
+      });
+    }
+
+    toggleGoogleDriveMenu();
+    showToast('✓ Exportado com sucesso para o Google Drive');
+  } catch (error) {
+    console.error('Erro ao exportar para Google Drive:', error);
+    showToast('Erro ao exportar para Google Drive');
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────
 initTheme();
+loadSavedGoogleConfig();
+populateGoogleCredentialFields();
+initGoogleAPI();
 load();
 buildYearSelect();
 document.getElementById('sel-year').value=selYear;
