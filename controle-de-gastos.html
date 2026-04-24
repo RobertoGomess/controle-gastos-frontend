@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gastos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<input type="file" id="csv-file-input" accept=".csv" style="display:none">
+<div class="toast" id="toast"></div>
+
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="14" height="11" rx="2"/>
+          <path d="M6 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/>
+          <path d="M6 9h6M6 12h4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">Gastos</div>
+        <div class="brand-sub">Controle financeiro pessoal</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-icon" id="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="sun-icon"><circle cx="8" cy="8" r="5"/><path d="M8 1v2M8 13v2M15 8h-2M3 8H1M13.5 2.5l-1.4 1.4M4.9 11.1l-1.4 1.4M13.5 13.5l-1.4-1.4M4.9 4.9l-1.4-1.4"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="moon-icon" style="display:none"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+      <button class="btn btn-ghost" onclick="openImportModal()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9M4 7l4 4 4-4"/><path d="M2 13h12"/></svg>
+        Importar CSV
+      </button>
+      <button class="btn btn-ghost" style="color:var(--green)" onclick="exportCSV()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11V2M4 7l4-4 4 4"/><path d="M2 13h12"/></svg>
+        Exportar CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- CSV notice -->
+  <div class="csv-notice" id="csv-notice">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11h.01"/></svg>
+    <span id="csv-notice-text"></span>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="cards" id="summary"></div>
+
+  <!-- Alert banner -->
+  <div class="alert-banner" id="alert-banner">
+    <div class="alert-icon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 2L1.5 13h13L8 2z"/><path d="M8 6v4M8 11.5h.01"/>
+      </svg>
+    </div>
+    <div class="alert-body">
+      <div class="alert-title">Atenção — vencimentos próximos</div>
+      <div class="alert-items" id="alert-items"></div>
+    </div>
+  </div>
+
+  <!-- Add expense panel -->
+  <div class="panel-toggle" id="panel-toggle" onclick="togglePanel()">
+    <div class="panel-toggle-left">
+      <div class="panel-toggle-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      </div>
+      <div>
+        <div class="panel-toggle-label">Adicionar gasto</div>
+        <div class="panel-toggle-sub">Preencha os dados abaixo</div>
+      </div>
+    </div>
+    <svg class="panel-toggle-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>
+  </div>
+  <div class="panel-body" id="panel-body">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Descrição</label>
+        <input class="form-input" type="text" id="f-desc" placeholder="Ex: Aluguel, Cartão de crédito..." autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoria</label>
+        <select class="form-input" id="f-cat">
+          <option value="Moradia">🏠 Moradia</option>
+          <option value="Alimentação">🍽️ Alimentação</option>
+          <option value="Transporte">🚗 Transporte</option>
+          <option value="Saúde">💊 Saúde</option>
+          <option value="Lazer">🎮 Lazer</option>
+          <option value="Educação">📚 Educação</option>
+          <option value="Outros">📦 Outros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor (R$)</label>
+        <input class="form-input" type="number" id="f-val" placeholder="0,00" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vencimento</label>
+        <input class="form-input" type="date" id="f-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="f-status">
+          <option value="pending">⏳ Aguardando pagamento</option>
+          <option value="paid">✅ Pago</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addExpense()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+        Adicionar gasto
+      </button>
+      <button class="btn btn-ghost" onclick="clearForm()">Limpar</button>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="nav-btn" onclick="navPeriod(-1)" title="Anterior">‹</button>
+      <select class="period-select" id="sel-year" onchange="onYearChange()"></select>
+      <select class="period-select" id="sel-month" onchange="render()">
+        <option value="all">Todos os meses</option>
+        <option value="0">Janeiro</option><option value="1">Fevereiro</option>
+        <option value="2">Março</option><option value="3">Abril</option>
+        <option value="4">Maio</option><option value="5">Junho</option>
+        <option value="6">Julho</option><option value="7">Agosto</option>
+        <option value="8">Setembro</option><option value="9">Outubro</option>
+        <option value="10">Novembro</option><option value="11">Dezembro</option>
+      </select>
+      <button class="nav-btn" onclick="navPeriod(1)" title="Próximo">›</button>
+      <button class="today-btn" onclick="goToday()">Hoje</button>
+    </div>
+    <div class="toolbar-right">
+      <div class="filter-pills">
+        <button class="filter-pill active" onclick="setFilter('all',this)">Todos</button>
+        <button class="filter-pill" onclick="setFilter('pending',this)">Pendentes</button>
+        <button class="filter-pill" onclick="setFilter('paid',this)">Pagos</button>
+        <button class="filter-pill" onclick="setFilter('overdue',this)">Vencidos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expense list -->
+  <div class="list-card">
+    <div class="list-head">
+      <span>Descrição</span>
+      <span>Vencimento</span>
+      <span>Valor</span>
+      <span>Status</span>
+      <span></span>
+    </div>
+    <div id="expense-list"></div>
+  </div>
+
+</div><!-- /.app -->
+
+<!-- Import Modal -->
+<div class="overlay" id="import-modal">
+  <div class="modal">
+    <span class="modal-drag"></span>
+    <div class="modal-head">
+      <div class="modal-title">Importar CSV</div>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+    <p class="modal-sub">Selecione um <strong>gastos.csv</strong> exportado anteriormente. Os dados atuais serão substituídos.</p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-file-input').click()">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <strong>Clique para selecionar</strong>
+      <p>ou arraste o .csv aqui</p>
+    </div>
+    <div class="import-preview" id="import-preview"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="import-confirm" onclick="confirmImport()" style="display:none">Importar dados</button>
+      <button class="btn btn-ghost" onclick="closeImportModal()">Cancelar</button>
+    </div>
+    <div class="modal-feedback" id="import-feedback"></div>
+  </div>
+</div>
+
+
+
+<script src="script.js"></script>
+</body>
+</html>
